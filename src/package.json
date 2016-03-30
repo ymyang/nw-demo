@@ -1,9 +1,9 @@
 {
   "name": "nw-demo",
   "version": "1.0.0",
-  "main": "app://localhost/index.html",
+  "main": "index.html",
   "window": {
-    "icon": "yliyun_512.png",
+    "icon": "yliyun_64.png",
     "title": "yliyun",
     "show": false,
     "toolbar": true,

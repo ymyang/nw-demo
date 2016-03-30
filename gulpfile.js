@@ -1,7 +1,6 @@
 /**
  * Created by yang on 2015/8/12.
  */
-var nw = require('nw');
 var gulp = require('gulp');
 var gutil = require('gulp-util');
 var rev = require('gulp-rev');
@@ -9,42 +8,26 @@ var del = require('del');
 var shelljs = require('shelljs');
 
 gulp.task('clean', function(cb) {
-    del(['./build'], cb);
-});
-
-gulp.task('script', function() {
-    return gulp.src('./src/**/*.js')
-        .pipe(require('gulp-uglify')())
-        .pipe(rev())
-        .pipe(gulp.dest('./build/js'));
-});
-
-gulp.task('less', function() {
-    return gulp.src('./src/**/*.less')
-        .pipe(require('gulp-less')())
-        .pipe(require('gulp-minify-css')())
-        .pipe(gulp.dest('./build/css'));
-});
-
-gulp.task('css', function() {
-    return gulp.src('./src/**/*.css')
-        .pipe(require('gulp-minify-css')())
-        .pipe(gulp.dest('./build/css'));
+    del(['./build', './release'], cb);
 });
 
 gulp.task('nw', function() {
     var Nwbuilder = require('nw-builder');
     var nw = new Nwbuilder({
         files: './build/**/**',
-        version: "0.12.3",
+        version: '0.13.2',
+        platforms: ['osx64', 'win32'],
         appName: 'yliyun',
-        appVersion: '0.0.1',
-        platforms: ['win32'] ,
+        appVersion: '1.6.7',
         buildDir: './release',
-        cacheDir: './tmp',
-        buildType: 'versioned',
+        cacheDir: './res/nw',
+        buildType: 'default',
+        zip: true,
+        winIco: './build/yliyun.ico',
         //forceDownload: true,
-        winIco: './build/yliyun.ico'
+        //macCredits: '',
+        macIcns: './build/yliyun.icns'
+        //macPlist: ''
     });
 
     nw.on('log', function(msg) {
@@ -60,7 +43,7 @@ gulp.task('nw', function() {
 
 gulp.task('fis', function() {
     shelljs.cd('./src/web');
-    shelljs.exec('yliyun release -cd ../../build');
+    shelljs.exec('fisy release');
     shelljs.cd('../../');
 });
 
@@ -75,24 +58,16 @@ gulp.task('node', ['node_modules'], function() {
 });
 
 gulp.task('copy', ['node'], function() {
-    return gulp.src(['./src/package.json', './src/res/**/**'])
+    return gulp.src(['./src/package.json', './src/res/**/**', './src/web/**/**'])
         .pipe(gulp.dest('./build/'));
-});
-
-gulp.task('watch', function() {
-    gulp.watch('./src/web/**/**', ['fis']);
-    gulp.watch('./src/node/**/**', ['node']);
-    gulp.watch('./src/res/**/**', ['copy']);
-});
-
-gulp.task('start', function() {
-    shelljs.exec(nw.findpath() + ' ./build');
 });
 
 gulp.task('build', ['fis', 'copy']);
 
-gulp.task('serve', ['build', 'watch'], function() {
-    gulp.start('start');
+gulp.task('start', ['build'], function() {
+    var nw = path.join(__dirname, 'res/nw/0.13.2/win32/nw.exe');
+    console.log('nw:', nw);
+    shelljs.exec(nw + ' ./build');
 });
 
 gulp.task('release', ['nw']);
