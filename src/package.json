@@ -3,10 +3,9 @@
   "version": "1.0.0",
   "main": "index.html",
   "window": {
-    "icon": "yliyun_64.png",
-    "title": "一粒云盘",
+    "icon": "res/yliyun_64.png",
+    "title": "一粒云",
     "show": false,
-    "toolbar": true,
     "position": "center",
     "width": 1024,
     "height": 768,

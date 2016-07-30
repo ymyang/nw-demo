@@ -1,75 +1,208 @@
 /**
  * Created by yang on 2015/8/12.
  */
-var gulp = require('gulp');
-var gutil = require('gulp-util');
-var rev = require('gulp-rev');
-var del = require('del');
-var shelljs = require('shelljs');
+'use strict';
 
-gulp.task('clean', function(cb) {
+const os = require('os');
+const path = require('path');
+const fs = require('fs');
+const proc = require('child_process');
+const gulp = require('gulp');
+const gutil = require('gulp-util');
+const runSequence = require('run-sequence');
+const del = require('del');
+const shelljs = require('shelljs');
+const jetpack = require('fs-jetpack');
+const Promise = require('bluebird');
+
+const _isMac = os.type() === 'Darwin';
+
+// mac应用名称
+const appName = '一粒云';
+
+const nwVersion = '0.14.7';
+
+// 清理build和release目录
+gulp.task('clean', (cb) => {
     del(['./build', './release'], cb);
 });
 
-gulp.task('nw', function() {
-    var Nwbuilder = require('nw-builder');
-    var nw = new Nwbuilder({
-        files: './build/**/**',
-        version: '0.13.2',
-        platforms: ['osx64', 'win32'],
-        appName: 'yliyun',
-        appVersion: '1.6.7',
-        buildDir: './release',
-        cacheDir: './res/nw',
-        buildType: 'default',
-        zip: true,
-        winIco: './build/yliyun.ico',
-        //forceDownload: true,
-        //macCredits: '',
-        macIcns: './build/yliyun.icns'
-        //macPlist: ''
+gulp.task('build', () => {
+    jetpack.dir('./build', { empty: true});
+    jetpack.copy('./src/app', './build', { overwrite: true });
+    jetpack.copy('./src/res', './build/res', { overwrite: true });
+    jetpack.copy('./src/package.json', './build/package.json', { overwrite: true });
+});
+
+// 启动调试
+gulp.task('start', () => {
+    let nwjs = 'res/nw/' + nwVersion + '/win32/nw.exe';
+    if (_isMac) {
+        nwjs = 'res/nw/' + nwVersion + '/osx64/nwjs.app/Contents/MacOS/nwjs';
+    }
+    let nw = path.join(__dirname, nwjs);
+    gutil.log('nwjs:', nw);
+    //shelljs.exec(nw + ' ./build');
+    let p = proc.spawn(nw, ['./build']);
+
+    p.stdout.on('data', (data) => {
+        console.log(`stdout: ${data}`);
     });
 
-    nw.on('log', function(msg) {
+    p.stderr.on('data', (data) => {
+        console.log(`stderr: ${data}`);
+    });
+
+    p.on('close', (code) => {
+        console.log(`child process exited with code ${code}`);
+    });
+});
+
+// 打包
+gulp.task('pack', () => {
+    jetpack.dir('./publish');
+    jetpack.dir('./release', { empty: true });
+
+    _copyApp();
+
+    _copyNW();
+
+    _copyCommon();
+
+    return _winIcon();
+
+});
+
+// 生成安装包
+gulp.task('install', function() {
+    if (_isMac) {
+        // mac安装包
+        runSequence('nw', 'dmg');
+        return;
+    }
+    // windows安装包
+    shelljs.exec('makensis ./res/install.nsi');
+});
+
+
+// 打包mac安装包
+gulp.task('dmg', () => {
+    let manifest = jetpack.read('./src/package.json', 'json');
+    let appdmg = require('appdmg');
+    let app = appdmg({
+        target: './publish/yliyun-mac-v' + manifest.version + '.dmg',
+        basepath: __dirname,
+        specification: {
+            title: appName,
+            icon: './src/res/yliyun.icns',
+            contents: [
+                { x: 448, y: 144, type: 'link', path: '/Applications' },
+                { x: 192, y: 144, type: 'file', path: './publish/' + appName + '/osx64/' + appName + '.app' }
+            ]
+        }
+    });
+    app.on('progress', (info) => {
+        gutil.log('progress:', JSON.stringify(info));
+    });
+    app.on('finish', () => {
+        gutil.log('finish');
+    });
+    app.on('error', (err) => {
+        gutil.log(err);
+    });
+});
+
+// 打包mac应用程序文件
+gulp.task('nw', () => {
+    let manifest = jetpack.read('./src/package.json', 'json');
+    let Nwbuilder = require('nw-builder');
+    let nw = new Nwbuilder({
+        files: './release/app/**/**',
+        version: nwVersion,
+        platforms: _isMac ? ['osx64'] : ['win32'],
+        appName: appName,
+        appVersion: manifest.version,
+        buildDir: './publish',
+        cacheDir: './res/nw',
+        buildType: 'default',
+        zip: false,
+        winIco: './release/app/yliyun.ico',
+        //forceDownload: true,
+        //macCredits: '',
+        macIcns: './release/app/yliyun.icns',
+        macPlist: {
+            CFBundleDisplayName: appName
+        }
+    });
+
+    nw.on('log', (msg) => {
         gutil.log('nw-builder log', msg);
     });
 
-    return nw.build().then(function() {
+    return nw.build().then(() => {
         gutil.log('nw-builder', 'all done');
-    }).catch(function(err) {
+    }).catch((err) => {
         gutil.log('nw-builder err', err);
     });
 });
 
-gulp.task('fis', function() {
-    shelljs.cd('./src/web');
-    shelljs.exec('fisy release');
-    shelljs.cd('../../');
-});
+// 拷贝nw至release
+function _copyNW() {
+    jetpack.copy('./res/nw/' + nwVersion + '/win32', './release', {
+        overwrite: true,
+        matching: ['locales/*', 'd3dcompiler_47.dll', 'dbghelp.dll', 'ffmpeg.dll', 'icudtl.dat', 'libEGL.dll', 'libexif.dll',
+            'libGLESv2.dll', 'natives_blob.bin', 'node.dll', 'nw.dll', 'nw.exe', 'nw_100_percent.pak', 'nw_200_percent.pak',
+            'nw_elf.dll', 'resources.pak', 'snapshot_blob.bin']
+    });
 
-gulp.task('node_modules', function() {
-    return gulp.src(['./src/node_modules/**/**'])
-        .pipe(gulp.dest('./build/node_modules/'));
-});
+    gutil.log('copy nw done');
 
-gulp.task('node', ['node_modules'], function() {
-    return gulp.src(['./src/node/**/*.js'])
-        .pipe(gulp.dest('./build/node/'));
-});
+    jetpack.copy('./res/ffmpeg.dll', './release/ffmpeg.dll', {
+        overwrite: true
+    });
 
-gulp.task('copy', ['node'], function() {
-    return gulp.src(['./src/package.json', './src/res/**/**', './src/web/**/**'])
-        .pipe(gulp.dest('./build/'));
-});
+    jetpack.rename('./release/nw.exe', 'yliyun.exe');
+    return;
+}
 
-gulp.task('build', ['fis', 'copy']);
+// 拷贝程序文件至release
+function _copyApp() {
+    jetpack.copy('./build', './release/app', {
+        overwrite: true
+    });
 
-gulp.task('start', ['build'], function() {
-    var nw = path.join(__dirname, 'res/nw/0.13.2/win32/nw.exe');
-    console.log('nw:', nw);
-    shelljs.exec(nw + ' ./build');
-});
+    gutil.log('copy app done');
+    return;
+}
 
-gulp.task('release', ['nw']);
+// 拷贝其他资源至release
+function _copyCommon() {
+    jetpack.copy('./res', './release', {
+        overwrite: true,
+        matching: ['yliyun_start.exe']
+    });
+    gutil.log('copy common done');
+    return;
+}
+
+// 替换exe图标
+function _winIcon() {
+    return new Promise((resolve, reject) => {
+        require('winresourcer')({
+            operation: 'Update', // one of Add, Update, Extract or Delete
+            exeFile: './release/yliyun.exe',
+            resourceType: 'Icongroup',
+            resourceName: 'IDR_MAINFRAME',
+            lang: 1033, // Required, except when updating or deleting
+            resourceFile: './src/res/yliyun.ico' // Required, except when deleting
+        }, (err) => {
+            // callback
+            if (err) {
+                reject(err);
+            }
+            resolve();
+        });
+    });
+}
 
 gulp.task('default', ['build']);
