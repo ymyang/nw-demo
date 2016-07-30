@@ -150,9 +150,10 @@ gulp.task('nw', () => {
 function _copyNW() {
     jetpack.copy('./res/nw/' + nwVersion + '/win32', './release', {
         overwrite: true,
-        matching: ['locales/*', 'd3dcompiler_47.dll', 'dbghelp.dll', 'ffmpeg.dll', 'icudtl.dat', 'libEGL.dll', 'libexif.dll',
-            'libGLESv2.dll', 'natives_blob.bin', 'node.dll', 'nw.dll', 'nw.exe', 'nw_100_percent.pak', 'nw_200_percent.pak',
-            'nw_elf.dll', 'resources.pak', 'snapshot_blob.bin']
+        matching: ['locales/en-US.pak', 'locales/zh-CN.pak', 'locales/zh-TW.pak',
+            'd3dcompiler_47.dll', 'dbghelp.dll', 'ffmpeg.dll', 'icudtl.dat', 'libEGL.dll', 'libexif.dll',
+            'libGLESv2.dll', 'natives_blob.bin', 'node.dll', 'nw.dll', 'nw.exe', 'nw_100_percent.pak',
+            'nw_200_percent.pak', 'nw_elf.dll', 'resources.pak', 'snapshot_blob.bin']
     });
 
     gutil.log('copy nw done');
