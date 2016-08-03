@@ -141,6 +141,17 @@ gulp.task('nw', () => {
 
     return nw.build().then(() => {
         gutil.log('nw-builder', 'all done');
+
+        if (_isMac) {
+            var ffmpegTarget = './publish/' + appName + '/osx64/' + appName
+                + '.app/Contents/Versions/50.0.2661.102/nwjs Framework.framework/libffmpeg.dylib';
+
+            jetpack.copy('./res/libffmpeg.dylib', ffmpegTarget, {
+                overwrite: true
+            });
+        }
+
+        return;
     }).catch((err) => {
         gutil.log('nw-builder err', err);
     });
