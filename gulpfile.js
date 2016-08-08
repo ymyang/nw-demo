@@ -22,6 +22,8 @@ const appName = '一粒云';
 
 const nwVersion = '0.14.7';
 
+const manifest = jetpack.read('./src/package.json', 'json');
+
 // 清理build和release目录
 gulp.task('clean', (cb) => {
     del(['./build', './release'], cb);
@@ -87,7 +89,6 @@ gulp.task('install', function() {
 
 // 打包mac安装包
 gulp.task('dmg', () => {
-    let manifest = jetpack.read('./src/package.json', 'json');
     let appdmg = require('appdmg');
     let app = appdmg({
         target: './publish/yliyun-mac-v' + manifest.version + '.dmg',
@@ -114,7 +115,6 @@ gulp.task('dmg', () => {
 
 // 打包mac应用程序文件
 gulp.task('nw', () => {
-    let manifest = jetpack.read('./src/package.json', 'json');
     let Nwbuilder = require('nw-builder');
     let nw = new Nwbuilder({
         files: './release/app/**/**',
@@ -126,10 +126,10 @@ gulp.task('nw', () => {
         cacheDir: './res/nw',
         buildType: 'default',
         zip: false,
-        winIco: './release/app/yliyun.ico',
+        winIco: './release/app/res/yliyun.ico',
         //forceDownload: true,
         //macCredits: '',
-        macIcns: './release/app/yliyun.icns',
+        macIcns: './release/app/res/yliyun.icns',
         macPlist: {
             CFBundleDisplayName: appName
         }
